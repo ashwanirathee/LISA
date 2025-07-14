@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cu117
 torch==1.13.1
-torchvision==0.14.1
+torchvision==0.15.1
 packaging
 sentencepiece
 peft==0.4.0
