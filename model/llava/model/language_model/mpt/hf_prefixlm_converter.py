@@ -15,7 +15,8 @@ import torch
 from transformers.models.bloom.modeling_bloom import (
     BaseModelOutputWithPastAndCrossAttentions, BloomForCausalLM, BloomModel,
     CausalLMOutputWithCrossAttentions, CrossEntropyLoss)
-from transformers.modeling_utils import expand_mask as _expand_mask_bloom
+from transformers.models.bloom.modeling_bloom import \
+    _expand_mask as _expand_mask_bloom
 from transformers.models.bloom.modeling_bloom import \
     _make_causal_mask as _make_causal_mask_bloom
 from transformers.models.bloom.modeling_bloom import logging
