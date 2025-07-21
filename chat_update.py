@@ -226,7 +226,7 @@ def main(args):
 
     for i, pred_mask in enumerate(pred_masks):
         if pred_mask.shape[0] == 0:
-            continue
+            return
 
         pred_mask = pred_mask.detach().cpu().numpy()[0]
         pred_mask = pred_mask > 0
