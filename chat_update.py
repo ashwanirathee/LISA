@@ -171,7 +171,7 @@ def main(args):
     image_path = args.img_path
     if not os.path.exists(image_path):
         print("File not found in {}".format(image_path))
-        continue
+        return
 
     image_np = cv2.imread(image_path)
     image_np = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
