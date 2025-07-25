@@ -15,6 +15,48 @@ from model.segment_anything.utils.transforms import ResizeLongestSide
 from utils.utils import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
                          DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX)
 
+# Fixed prompt
+PROMPT1 = """
+- People who are walking or riding kick scooters (including electric kick scooters), segways, skateboards, etc. are labeled as pedestrians.
+- People inside other vehicles are not labeled, except for people standing on the top of cars/trucks or standing on flatbeds of trucks.
+- A person riding a bicycle is not labeled as a pedestrian, but labeled as a cyclist instead.
+- Mannequins, statues, billboards, posters, or reflections of people are not labeled.
+- Include small child or carrying small items (smaller than 2m in size such as umbrella or small handbag or a sign).
+- Include small mobility devices like a kick scooter (including electric kick scooter), a segway, a skateboard, etc
+- If the pedestrian is carrying an object larger than 2m, or pushing a bike or shopping cart, the bounding box does not include the additional object.
+- If the pedestrian is pushing a stroller with a child in it, separate bounding boxes are created for the pedestrian and the child. The stroller is not included in the child bounding box.
+- If pedestrians overlap each other, they are labeled as separate objects. If they overlap then the bounding boxes can overlap as well.
+"""
+
+PROMPT2 = """
+Output segmentation masks for pedestrians with:
+1. Label visible pedestrians.
+2. Do not label if pedestrian identity is unclear.
+3. Label people walking or on scooters, segways, skateboards.
+4. Do not label people inside vehicles, unless on top/flatbeds.
+5. Cyclists are not labeled as pedestrians.
+6. Ignore mannequins, posters, reflections, etc.
+7. Use one box if pedestrian carries small items (<2m) or a child.
+8. Label scooter/segway/skateboard riders with one box.
+9. Exclude large items (>2m) or pushed carts/bikes from box.
+10. Use separate boxes for pedestrian and child in stroller; exclude stroller.
+11. Overlapping pedestrians get separate (possibly overlapping) boxes.
+"""
+
+PROMPT3 = """
+pedestrian
+"""
+
+PROMPT4 = """
+"""
+
+Prompts = {
+  1:PROMPT1,
+  2:PROMPT2,
+  3:PROMPT3,
+  4:PROMPT4
+}
+
 def collect_pairs(root_dir):
     image_label_pairs = []
 
@@ -68,6 +110,7 @@ def parse_args(args):
         choices=["llava_v1", "llava_llama_2"],
     )
     parser.add_argument("--folder_path", default="/content/LISA/gt_good_sample")
+    parser.add_argument("--prompt_number", type=int, default=1, help="Number of the prompt to use (e.g. 1, 2)")
     return parser.parse_args(args)
 
 
@@ -177,14 +220,15 @@ def main(args):
     model.eval()
     pairs = collect_pairs(args.folder_path)
     print(f"Total pairs collected: {pairs}")
-    
+    print(f"Prompt: {Prompts[args.prompt_number]}")
     for img_path, lbl_path in pairs:
         torch.cuda.empty_cache()
         print(f"Processing image: {img_path} {lbl_path}")
         conv = conversation_lib.conv_templates[args.conv_type].copy()
         conv.messages = []
 
-        prompt = input("Please input your prompt: ")
+        #prompt = input("Please input your prompt: ")
+        prompt = Prompts[args.prompt_number]
 
         prompt = DEFAULT_IMAGE_TOKEN + "\n" + prompt
         if args.use_mm_start_end:
@@ -264,19 +308,32 @@ def main(args):
 
             pred_mask = pred_mask.detach().cpu().numpy()[0]
             pred_mask = pred_mask > 0
+            # Convert to uint8 for inspection and saving
+            pred_mask1 = pred_mask.astype(np.uint8)
 
+            # # Print min, max, and value counts
+            # print("Min:", pred_mask.min())
+            # print("Max:", pred_mask.max())
+            # print("Unique values and counts:", np.unique(pred_mask, return_counts=True))
+            # break
+            # Convert to grayscale [0, 255]
+            gray_mask = pred_mask1 * 255
+
+            # Save as grayscale PNG
+            save_path = "{}/{}_LISA_mask_{}_prompt{}.png".format(parent_dir, base_name, i, args.prompt_number)
+            cv2.imwrite(save_path, gray_mask)
             # save_path = "{}/{}_mask_{}.jpg".format(
             #    args.vis_save_path, image_path.split("/")[-1].split(".")[0], i
             #)
-            save_path = "{}/{}_LISA_mask_{}.jpg".format(parent_dir, base_name, i)
+            # save_path = "{}/{}_LISA_mask_{}.png".format(parent_dir, base_name, i)
 
-            cv2.imwrite(save_path, pred_mask * 100)
+            # cv2.imwrite(save_path, pred_mask * 100)
             print("{} has been saved.".format(save_path))
 
             # save_path = "{}/{}_masked_img_{}.jpg".format(
             #    args.vis_save_path, image_path.split("/")[-1].split(".")[0], i
             #)
-            save_path = "{}/{}_LISA_masked_img_{}.jpg".format(parent_dir, base_name, i)
+            save_path = "{}/{}_LISA_masked_img_{}_prompt{}.png".format(parent_dir, base_name, i, args.prompt_number)
 
             save_img = image_np.copy()
             save_img[pred_mask] = (
